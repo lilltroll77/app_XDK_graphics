@@ -35,7 +35,7 @@
 
 enum dir {horizontal,vertical};
 enum shape {rectangle,ellipse,splitrectangle};
-
+enum buffer {linebuffer,framebuffer};
 
 typedef struct{
 	short xposition;
@@ -63,6 +63,7 @@ typedef struct{
 	unsigned short yposition;
 	char str[52];
 	int color;
+	enum buffer type;
 	unsigned short pixelLength;
 }GtextRow;
 
@@ -76,8 +77,8 @@ typedef struct{
 void text_8x6_call(Gtext &text,const char str[], Gbuf &buf );
 void char_8x6_call(Gchar &Char, Gbuf &buf);
 void box_call(Gbox &obj, Gbuf &buf);
-void textRow_8x6(GtextRow &text, Gbuf &buf);
-void textRow2FrameBuf(GtextRow &text, Gbuf &buf);
+void textRow_8x6_call_frame(GtextRow &text, Gbuf &buf);
+void textRow_8x6_call_line(GtextRow &text, Gbuf &buf);
 void line(Gbuf &buf);
 
 static inline
@@ -92,6 +93,15 @@ void drawBackground(Gbuf &buf,int colour){
 #pragma unsafe arrays
 	for(int y=0;y<LCD_WIDTH_PX;y++)
 		buf.line[buf.lineColumn][y]=colour;
+}
+
+static inline
+void textRow_8x6(GtextRow &text, Gbuf &buf) {
+if(text.type==linebuffer){
+	if (text.xposition <= buf.column && buf.column < text.xposition + text.pixelLength)
+		textRow_8x6_call_line(text,buf);
+	}else
+		textRow_8x6_call_frame(text,buf);
 }
 
 
@@ -113,6 +123,7 @@ void box(Gbox &obj, Gbuf &buf ) {
 		box_call(obj,buf);
 }
 
-void setPixellength(Gtext &text,const char str[]);
+void initGtextrow(GtextRow &text);
+void initGtext(Gtext &text,const char str[]);
 
 #endif /* XDKGRAPHICS_H_ */

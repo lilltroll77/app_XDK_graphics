@@ -9,9 +9,24 @@
 #include "safestring.h"
 #include <xs1.h>
 #include <xclib.h>
+#include "lcd.h"
 #include <print.h>
 
-//#define INLINE
+//iso646.h
+#define and	&&
+#define and_eq	&=
+#define bitand	&
+#define bitor	|
+#define compl	~
+#define not	!
+#define not_eq	!=
+#define or	||
+#define or_eq	|=
+#define xor	^
+#define xor_eq	^=
+
+
+#define MASK ((1<<PALETTE_LEN)-1)
 
 static inline
 void clip(int &val, int min, int max) {
@@ -52,8 +67,7 @@ void box_call(Gbox &obj, Gbuf &buf) {
 		} else {
 #pragma unsafe arrays
 			for (ys = obj.yposition + 1; ys <= obj.yposition + obj.ysplit + 1; ys++)
-				buf.line[x][ys] = 30 + obj.ysplitColor + (ys - obj.yposition)
-						>> 1; //special
+				buf.line[x][ys] = obj.ysplitColor;// +30+ (ys - obj.yposition)>> 1; //special to be done
 #pragma unsafe arrays
 			for (ys; ys < obj.yposition + obj.ywidth; ys++)
 				buf.line[x][ys] = obj.fillColor;
@@ -141,11 +155,11 @@ void text_8x6_call(Gtext &text, const char str[], Gbuf &buf) {
 static inline
 void putFramepixel(Gbuf &buf, unsigned x, unsigned y, unsigned colour) {
 	int temp;
-	int rem = y % 16;
-	int div = y / 16;
+	int rem = y bitand MASK;
+	int div = y>>(6-PALETTE_BITS);
 	temp = buf.frame[x][div];
-	temp &= (0b11 << (2 * rem)) ^ 0xFFFFFFFF; //Zero the assigned bitfield
-	temp |= colour << (2 * rem);
+	temp and_eq 0xFFFFFFFF xor ((PALETTE_BITS-1) << (PALETTE_BITS * rem)) ; //Zero the assigned bitfield
+	temp or_eq colour << (PALETTE_BITS * rem);
 	buf.frame[x][div] = temp;
 }
 
@@ -156,37 +170,37 @@ void line(Gbuf &buf) {
 		buf.frame[102][y] = 0x11111111;
 }
 
-void textRow2FrameBuf(GtextRow &text, Gbuf &buf) {
+void textRow_8x6_call_frame(GtextRow &text, Gbuf &buf) {
 	unsigned ASCII_column;
-	unsigned colour = text.color & (PALETTE_LEN - 1); //Only for safty to avoid if a color was used instead of an index in the array
 	for (int x = 0; x < text.pixelLength; x++) {
 		ASCII_column = char_map_8x6[text.str[x / 6]][x % 6]; //The 8*1-bit pixeldata for one row in a character
 		for (unsigned y = 0; y < 8; y++) {
 			if ((ASCII_column << y) & 0b10000000)
-				putFramepixel(buf, x + text.xposition, y + text.yposition,
-						colour);
+				putFramepixel(buf, x + text.xposition, y + text.yposition,text.color);
 		}
 	}
 }
 
-void textRow_8x6(GtextRow &text, Gbuf &buf) {
-	if (text.xposition <= buf.column && buf.column < text.xposition
-			+ text.pixelLength) {
-		int rem, div;
+void textRow_8x6_call_line(GtextRow &text, Gbuf &buf) {
 		unsigned x = buf.lineColumn; //make local
 		int j = buf.column - text.xposition;
-		rem = j % 6;
-		div = j / 6;
-#pragma unsafe arrays
-		for (int y = text.yposition; y < (text.yposition + 8); y++) {
-			if (1 & (char_map_8x6[text.str[div]][rem] >> (text.yposition + 7
-					- y)))
+		unsigned ASCII_column = char_map_8x6[text.str[j / 6]][j % 6];
+	#pragma unsafe arrays
+		for (int y = 0; y < 8; y++) {
+			if ((ASCII_column << y) & 0b10000000)
 				buf.line[x][y] = text.color;
 		}
+}
+
+void initGtextrow(GtextRow &text){
+	text.pixelLength=6*safestrlen(text.str);
+	if(text.type==framebuffer and text.color>=PALETTE_LEN){
+		printstrln("ERROR: PALETTE INDEX IS GREATER THAN PALETTE LENGT - PROGRAM HALTED");
+		while(1);
 	}
 }
 
-void setPixellength(Gtext &text, const char str[]) {
+void initGtext(Gtext &text, const char str[]) {
 	switch (text.angle) {
 	case horizontal:
 		text.pixelLength = 6 * safestrlen(str);
@@ -196,3 +210,4 @@ void setPixellength(Gtext &text, const char str[]) {
 		break;
 	}
 }
+
