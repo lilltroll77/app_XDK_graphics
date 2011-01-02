@@ -28,8 +28,8 @@
 #define LCD_TRANSPARENT		  -1
 #define LCD_INVERT			  0x3ffff
 #define LCD_INVERT_RED		  0x3f
-#define LCD_INVERT_GREEN	  0xfc0
-#define LCD_INVERT_BLUE	  	  0x3ffff
+#define LCD_INVERT_GREEN	  0x00fc0
+#define LCD_INVERT_BLUE	  	  0x3f000
 #define LCD_INVISIBLE		  0
 
 
@@ -38,8 +38,8 @@ enum shape {rectangle,ellipse,splitrectangle};
 
 
 typedef struct{
-	unsigned short xposition;
-	unsigned short yposition;
+	short xposition;
+	short yposition;
 	int color;
 	enum dir angle;
 	unsigned pixelLength;
@@ -78,6 +78,7 @@ void char_8x6_call(Gchar &Char, Gbuf &buf);
 void box_call(Gbox &obj, Gbuf &buf);
 void textRow_8x6(GtextRow &text, Gbuf &buf);
 void textRow2FrameBuf(GtextRow &text, Gbuf &buf);
+void line(Gbuf &buf);
 
 static inline
 void updateLineHandler(Gbuf &buf){

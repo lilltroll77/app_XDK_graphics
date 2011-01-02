@@ -20,7 +20,7 @@
 #define T_HBP                 650 //delay connected with Hsync may be decreased
 #define T_WH                  350	//delay connected with DTMG may be decreased
 #define T_VBP                 10000	//100us delay before each frame
-#define LCD_CLKDIV            10	//  100/2/(10)= 5.00 MHz clock, do not go below 8 e.g. 6.25 MHz
+#define LCD_CLKDIV            10	//  100/2/(10)= 5.00 MHz clock, do not go below 9 e.g. 5.55 MHz, driver will be starved out of time
 
 #define LINES 4				//The amount of lines used in the linebuffer, 320/LINES should not result in a reminder in this release
 #define LCD_WIDTH_PX 240 	//Adopted from XMOS, this is the short LCD side

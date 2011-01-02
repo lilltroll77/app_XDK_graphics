@@ -8,17 +8,18 @@
 #include "XDKgraphics.h"
 #include "safestring.h"
 #include <xs1.h>
+#include <xclib.h>
+#include <print.h>
 
 //#define INLINE
 
 static inline
-void clip(int &val,int min,int max){
-	if(val>max)
-		val=max;
-	else if(val<min)
-		val=min;
-	}
-
+void clip(int &val, int min, int max) {
+	if (val > max)
+		val = max;
+	else if (val < min)
+		val = min;
+}
 
 void box_call(Gbox &obj, Gbuf &buf) {
 
@@ -107,65 +108,85 @@ void char_8x6_call(Gchar &Char, Gbuf &buf) {
 	}
 }
 
-
 void text_8x6_call(Gtext &text, const char str[], Gbuf &buf) {
 	int rem, div, yt;
+	unsigned ASCII_column;
 	unsigned x = buf.lineColumn; //make local
 	int j = buf.column - text.xposition;
 	switch (text.angle) {
 	case horizontal:
-		rem = j % 6;
-		div = j / 6;
+		ASCII_column = char_map_8x6[str[j / 6]][j % 6];
 #pragma unsafe arrays
-		for (int y = text.yposition; y < (text.yposition + 8); y++) {
-			if (1 & (char_map_8x6[str[div]][rem] >> (text.yposition + 7 - y)))
-				buf.line[x][y] = text.color;
+		for (int y = 0; y < 8; y++) {
+			if ((ASCII_column << y) & 0b10000000)
+				buf.line[x][y + text.yposition] = text.color;
 		}
 		break;
 	case vertical:
 #pragma unsafe arrays
 		for (int row = 0; str[row] != 0; row++) {
-			for (int y = text.yposition; y < (text.yposition + 8); y++) {
-				yt = y - 10 * row;
-				if (1 & (char_map_8x6[str[row]][j] >> (text.yposition + 7 - y))
-						&& yt >= 0)
-					buf.line[x][yt] = text.color;
+			ASCII_column = char_map_8x6[str[row]][j % 6];
+			for (int y = 0; y < 8; y++) {
+				if ((ASCII_column << y) & 0b10000000) {
+					yt = y + text.yposition - 10 * row;
+					if (yt >= 0)
+						buf.line[x][yt] = text.color;
+				}
 			}
 		}
 		break;
 	}
 }
 
+static inline
+void putFramepixel(Gbuf &buf, unsigned x, unsigned y, unsigned colour) {
+	int temp;
+	int rem = y % 16;
+	int div = y / 16;
+	temp = buf.frame[x][div];
+	temp &= (0b11 << (2 * rem)) ^ 0xFFFFFFFF; //Zero the assigned bitfield
+	temp |= colour << (2 * rem);
+	buf.frame[x][div] = temp;
+}
 
+void line(Gbuf &buf) {
+	for (int i = 0; i < 240; i += 2)
+		putFramepixel(buf, 100, i, 1);
+	for (int y = 0; y < 15; y++)
+		buf.frame[102][y] = 0x11111111;
+}
 
-void textRow2FrameBuf(GtextRow &text, Gbuf &buf){
-for (int x = 0 ; x<text.pixelLength ; x++){
-	for (int y = 0 ; y <8 ; y++ ) {
-		if( (char_map_8x6[text.str[x/6]][x%6]&(1<<(7-y)))>0)
-		buf.frame[x+text.xposition][(text.yposition)>>4 ]|= (text.color<<(2*y+(text.yposition%16)));
+void textRow2FrameBuf(GtextRow &text, Gbuf &buf) {
+	unsigned ASCII_column;
+	unsigned colour = text.color & (PALETTE_LEN - 1); //Only for safty to avoid if a color was used instead of an index in the array
+	for (int x = 0; x < text.pixelLength; x++) {
+		ASCII_column = char_map_8x6[text.str[x / 6]][x % 6]; //The 8*1-bit pixeldata for one row in a character
+		for (unsigned y = 0; y < 8; y++) {
+			if ((ASCII_column << y) & 0b10000000)
+				putFramepixel(buf, x + text.xposition, y + text.yposition,
+						colour);
 		}
 	}
 }
 
-
 void textRow_8x6(GtextRow &text, Gbuf &buf) {
-if (text.xposition <= buf.column && buf.column < text.xposition + text.pixelLength) {
+	if (text.xposition <= buf.column && buf.column < text.xposition
+			+ text.pixelLength) {
 		int rem, div;
-		unsigned x=buf.lineColumn; //make local
+		unsigned x = buf.lineColumn; //make local
 		int j = buf.column - text.xposition;
-			rem = j % 6;
-			div = j / 6;
+		rem = j % 6;
+		div = j / 6;
 #pragma unsafe arrays
-			for (int y = text.yposition; y < (text.yposition
-					+ 8); y++) {
-				if (1 & (char_map_8x6[text.str [div]][rem]
-						>> (text.yposition + 7 - y)))
-					buf.line[x][y] = text.color;
-			}
+		for (int y = text.yposition; y < (text.yposition + 8); y++) {
+			if (1 & (char_map_8x6[text.str[div]][rem] >> (text.yposition + 7
+					- y)))
+				buf.line[x][y] = text.color;
+		}
 	}
 }
 
-void setPixellength(Gtext &text,const char str[]) {
+void setPixellength(Gtext &text, const char str[]) {
 	switch (text.angle) {
 	case horizontal:
 		text.pixelLength = 6 * safestrlen(str);
